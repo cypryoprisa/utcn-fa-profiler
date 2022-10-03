@@ -8,7 +8,16 @@
 #define _CRT_SECURE_NO_DEPRECATE
 #define _CRT_SECURE_NO_WARNINGS
 
-#ifdef _MSC_VER
+//OS detection
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+#   define PROFILER_WINDOWS
+#elif __APPLE__
+#   define PROFILER_OSX
+#elif __linux__
+#   define PROFILER_LINUX
+#endif
+
+#ifdef PROFILER_WINDOWS
 #   include <Windows.h>
 #   include <Shellapi.h>
 #endif
@@ -11093,28 +11102,29 @@ const char htmlLast[] = {
 };
 };
 
-class Profiler{
+class Profiler {
 public:
-	/**
-	* maximum lenght for any string that this class should receive
-	*/
-	static const int MAX_NAME_LEN = 128;
+    /**
+    * maximum lenght for any string that this class should receive
+    */
+    static const int MAX_NAME_LEN = 128;
 
-	/**
-	* constructs a new profiler with the given title
-	*/
-	Profiler(const char* givenTitle = NULL){
-		reset(givenTitle);
-	}
+    /**
+    * constructs a new profiler with the given title
+    */
+    Profiler(const char* givenTitle = NULL)
+    {
+        reset(givenTitle);
+    }
 
-	~Profiler(){
-	}
+    ~Profiler() {}
 
     /**
     * increases the count for operation name, at the specified size
     */
-    void reset(const char *newTitle = NULL){
-        if(opcountMap.size() != 0){
+    void reset(const char *newTitle = NULL)
+    {
+        if(opcountMap.size() != 0) {
             showReport();
         }
         title = newTitle? newTitle: "Title";
@@ -11122,210 +11132,218 @@ public:
         opcountMap.clear();
     }
 
-	/**
-	* increases the count for operation name, at the specified size
-	*/
-	void countOperation(const char *name, int size, int increment=1){
-		opcountMap[name][size] += increment;
-	}
+    /**
+    * increases the count for operation name, at the specified size
+    */
+    void countOperation(const char *name, int size, int increment=1)
+    {
+        opcountMap[name][size] += increment;
+    }
 
-	/**
-	* creates a new group from the given members
-	* the members will be displayed in the same chart
-	*/
-	void createGroup(const char *groupName, const char *member1, const char *member2 = NULL,
-						const char *member3 = NULL, const char *member4 = NULL,
-						const char *member5 = NULL, const char *member6 = NULL,
-						const char *member7 = NULL, const char *member8 = NULL,
-						const char *member9 = NULL, const char *member10 = NULL){
-		groups[groupName] = std::vector<std::string>();
-		//this is a bad coding style
-		//kids, don't do this at home
+    /**
+    * creates a new group from the given members
+    * the members will be displayed in the same chart
+    */
+    void createGroup(const char *groupName, const char *member1, const char *member2 = NULL,
+                        const char *member3 = NULL, const char *member4 = NULL,
+                        const char *member5 = NULL, const char *member6 = NULL,
+                        const char *member7 = NULL, const char *member8 = NULL,
+                        const char *member9 = NULL, const char *member10 = NULL)
+    {
+        groups[groupName] = std::vector<std::string>();
+        //this is a bad coding style
+        //kids, don't do this at home
 #define ADD_MEMBER(member) if(member) {groups[groupName].push_back(member);}
-		ADD_MEMBER(member1);
-		ADD_MEMBER(member2);
-		ADD_MEMBER(member3);
-		ADD_MEMBER(member4);
-		ADD_MEMBER(member5);
-		ADD_MEMBER(member6);
-		ADD_MEMBER(member7);
-		ADD_MEMBER(member8);
-		ADD_MEMBER(member9);
-		ADD_MEMBER(member10);
+        ADD_MEMBER(member1);
+        ADD_MEMBER(member2);
+        ADD_MEMBER(member3);
+        ADD_MEMBER(member4);
+        ADD_MEMBER(member5);
+        ADD_MEMBER(member6);
+        ADD_MEMBER(member7);
+        ADD_MEMBER(member8);
+        ADD_MEMBER(member9);
+        ADD_MEMBER(member10);
 #undef ADD_MEMBER
-	}
+    }
 
-	/**
-	* creates a new series, by summing the given ones
-	*/
-	void addSeries(const char *newName, const char *series1, const char *series2){
-		if (opcountMap.find(series1) != opcountMap.end() &&
-			opcountMap.find(series2) != opcountMap.end()){
-				OpcountSequence::const_iterator it1, it2;
-				opcountMap[newName] = OpcountSequence();
-				for (it1 = opcountMap[series1].begin(); it1 != opcountMap[series1].end(); ++it1){
-					it2 = opcountMap[series2].find(it1->first);
-					if(it2 != opcountMap[series2].end()){
-						opcountMap[newName][it1->first] = it1->second + it2->second;
-					}else{
-						opcountMap[newName][it1->first] = it1->second;
-					}
-				}
-		}
-	}
+    /**
+    * creates a new series, by summing the given ones
+    */
+    void addSeries(const char *newName, const char *series1, const char *series2)
+    {
+        if(opcountMap.find(series1) != opcountMap.end() &&
+            opcountMap.find(series2) != opcountMap.end()) {
+                OpcountSequence::const_iterator it1, it2;
+                opcountMap[newName] = OpcountSequence();
+                for (it1 = opcountMap[series1].begin(); it1 != opcountMap[series1].end(); ++it1) {
+                    it2 = opcountMap[series2].find(it1->first);
+                    if(it2 != opcountMap[series2].end()) {
+                        opcountMap[newName][it1->first] = it1->second + it2->second;
+                    } else {
+                        opcountMap[newName][it1->first] = it1->second;
+                    }
+                }
+        }
+    }
 
     /**
     * divides the values in a series
     */
-	void divideValues(const char *series, unsigned int divisor) {
-		if (opcountMap.find(series) != opcountMap.end() && divisor != 0) {
-			OpcountSequence::iterator it;
-			for (it = opcountMap[series].begin(); it != opcountMap[series].end(); ++it) {
-				it->second /= divisor;
-			}
-		}
-	}
+    void divideValues(const char *series, unsigned int divisor)
+    {
+        if (opcountMap.find(series) != opcountMap.end() && divisor != 0) {
+            OpcountSequence::iterator it;
+            for (it = opcountMap[series].begin(); it != opcountMap[series].end(); ++it) {
+                it->second /= divisor;
+            }
+        }
+    }
 
-	/**
-	* creates and shows the report
-	*/
-	int showReport(){
-		FILE *fout = NULL;
-		bool hasData, hasSequences;
-		char reportName[200];
-		time_t crtTime = time(0);
-		struct tm now;
-#ifdef _MSC_VER
-		localtime_s(&now, &crtTime);
+    /**
+    * creates and shows the report
+    */
+    int showReport()
+    {
+        FILE *fout = NULL;
+        bool hasData, hasSequences;
+        char reportName[200];
+        time_t crtTime = time(0);
+        struct tm now;
+#ifdef PROFILER_WINDOWS
+        localtime_s(&now, &crtTime);
 #else
         now = *localtime(&crtTime);
 #endif
 
-#ifdef _MSC_VER
-		_snprintf_s(
+#ifdef PROFILER_WINDOWS
+        _snprintf_s(
 #else
         snprintf(
 #endif
                             reportName, sizeof(reportName), 
                             "report-%s-%04d%02d%02d-%02d%02d%02d.html", 
-							title.c_str(),
-							now.tm_year + 1900,
-							now.tm_mon + 1,
-							now.tm_mday,
-							now.tm_hour,
-							now.tm_min,
-							now.tm_sec
-		);
-#ifdef _MSC_VER
-		fopen_s(&fout, reportName, "wb");
+                            title.c_str(),
+                            now.tm_year + 1900,
+                            now.tm_mon + 1,
+                            now.tm_mday,
+                            now.tm_hour,
+                            now.tm_min,
+                            now.tm_sec
+        );
+#ifdef PROFILER_WINDOWS
+        fopen_s(&fout, reportName, "wb");
 #else
-		fout = fopen(reportName, "wb");
+        fout = fopen(reportName, "wb");
 #endif
-		fwrite(HtmlGen::htmlFirst, 1, sizeof(HtmlGen::htmlFirst)/sizeof(HtmlGen::htmlFirst[0]), fout);
+        fwrite(HtmlGen::htmlFirst, 1, sizeof(HtmlGen::htmlFirst) / sizeof(HtmlGen::htmlFirst[0]), fout);
 
-		//first, show the operation counters
-		fprintf(fout, "{\n\t\"opcount\": {\n");
-		OpcountMap::const_iterator oit1;
-		OpcountSequence::const_iterator oit2;
-		hasSequences = false;
-		for(oit1 = opcountMap.begin(); oit1 != opcountMap.end(); ++oit1){
-			hasSequences = true;
-			hasData = false;
-			fprintf(fout, "\t\t\"");
-			print_modified(fout, oit1->first.c_str());
-			fprintf(fout, "\": [");
-			for(oit2 = oit1->second.begin(); oit2 != oit1->second.end(); ++oit2){
-				hasData = true;
-				fprintf(fout, "[%d, %u], ", oit2->first, oit2->second);
-			}
-			if(hasData){
-				fseek(fout, -2, SEEK_CUR);
-			}
-			fprintf(fout, "],\n");
-		}
-		if(hasSequences){
-			fseek(fout, -(int)(strlen("\n") + 1), SEEK_CUR);
-			fprintf(fout, "\n");
-		}
-		
+        //first, show the operation counters
+        fprintf(fout, "{\n\t\"opcount\": {\n");
+        OpcountMap::const_iterator oit1;
+        OpcountSequence::const_iterator oit2;
+        hasSequences = false;
+        for(oit1 = opcountMap.begin(); oit1 != opcountMap.end(); ++oit1) {
+            hasSequences = true;
+            hasData = false;
+            fprintf(fout, "\t\t\"");
+            print_modified(fout, oit1->first.c_str());
+            fprintf(fout, "\": [");
+            for(oit2 = oit1->second.begin(); oit2 != oit1->second.end(); ++oit2) {
+                hasData = true;
+                fprintf(fout, "[%d, %u], ", oit2->first, oit2->second);
+            }
+            if(hasData) {
+                fseek(fout, -2, SEEK_CUR);
+            }
+            fprintf(fout, "],\n");
+        }
+        if(hasSequences) {
+            fseek(fout, -(int)(strlen("\n") + 1), SEEK_CUR);
+            fprintf(fout, "\n");
+        }
+        
         fprintf(fout, "\t},\n\t\"groups\": {\n");
-		//next show the groups
-		hasSequences = false;
-		GroupMap::const_iterator git1;
-		std::vector<std::string>::const_iterator git2;
-		for(git1 = groups.begin(); git1 != groups.end(); ++git1){
-			hasSequences = true;
-			hasData = false;
-			fprintf(fout, "\t\t\"");
-			print_modified(fout, git1->first.c_str());
-			fprintf(fout, "\": [");
-			for(git2 = git1->second.begin(); git2 != git1->second.end(); ++git2){
-				hasData = true;
-				fprintf(fout, "\"");
-				print_modified(fout, git2->c_str());
-				fprintf(fout, "\", ");
-			}
-			if(hasData){
-				fseek(fout, -2, SEEK_CUR);
-			}
-			fprintf(fout, "],\n");
-		}
-		if(hasSequences){
-			fseek(fout, -(int)(strlen("\n") + 1), SEEK_CUR);
-			fprintf(fout, "\n");
-		}
-		fprintf(fout, "\t}\n}\n");
-		fwrite(HtmlGen::htmlLast, 1, sizeof(HtmlGen::htmlLast)/sizeof(HtmlGen::htmlLast[0]), fout);
-		fclose(fout);
+        //next show the groups
+        hasSequences = false;
+        GroupMap::const_iterator git1;
+        std::vector<std::string>::const_iterator git2;
+        for(git1 = groups.begin(); git1 != groups.end(); ++git1) {
+            hasSequences = true;
+            hasData = false;
+            fprintf(fout, "\t\t\"");
+            print_modified(fout, git1->first.c_str());
+            fprintf(fout, "\": [");
+            for(git2 = git1->second.begin(); git2 != git1->second.end(); ++git2) {
+                hasData = true;
+                fprintf(fout, "\"");
+                print_modified(fout, git2->c_str());
+                fprintf(fout, "\", ");
+            }
+            if(hasData) {
+                fseek(fout, -2, SEEK_CUR);
+            }
+            fprintf(fout, "],\n");
+        }
+        if(hasSequences) {
+            fseek(fout, -(int)(strlen("\n") + 1), SEEK_CUR);
+            fprintf(fout, "\n");
+        }
+        fprintf(fout, "\t}\n}\n");
+        fwrite(HtmlGen::htmlLast, 1, sizeof(HtmlGen::htmlLast)/sizeof(HtmlGen::htmlLast[0]), fout);
+        fclose(fout);
 
-#ifdef _MSC_VER
-		ShellExecuteA(NULL, "open", reportName, NULL, NULL, SW_SHOW);
+#ifdef PROFILER_WINDOWS
+        ShellExecuteA(NULL, "open", reportName, NULL, NULL, SW_SHOW);
 #endif
-		return 0;
-	}
+        return 0;
+    }
 
 private:
-	typedef unsigned int OPCOUNT_MEASURE;
+    typedef unsigned int OPCOUNT_MEASURE;
 
-	typedef std::map<int, OPCOUNT_MEASURE> OpcountSequence;
-	typedef std::map<std::string, OpcountSequence> OpcountMap;
+    typedef std::map<int, OPCOUNT_MEASURE> OpcountSequence;
+    typedef std::map<std::string, OpcountSequence> OpcountMap;
 
-	typedef std::map<std::string, std::vector<std::string> > GroupMap;
+    typedef std::map<std::string, std::vector<std::string> > GroupMap;
 
 public:
-	class OperationCounter{
-		OpcountSequence::iterator ptrInMap;
-		Profiler &profiler;
-		friend class Profiler;
-		OperationCounter(Profiler &prof, const char *name, int size) : profiler(prof) {
-			profiler.opcountMap[name][size]; // force creation
-			ptrInMap = profiler.opcountMap[name].find(size);
-		}
-	  public:
-		void count(int increment=1) { ptrInMap->second += increment; }
-		int get() const { return ptrInMap->second; }
-	};
-	
-	OperationCounter createOperation(const char *name, int size) {
-		return OperationCounter(*this, name, size);
-	}
+    class OperationCounter {
+        OpcountSequence::iterator ptrInMap;
+        Profiler &profiler;
+        friend class Profiler;
+        OperationCounter(Profiler &prof, const char *name, int size) : profiler(prof)
+        {
+            profiler.opcountMap[name][size]; // force creation
+            ptrInMap = profiler.opcountMap[name].find(size);
+        }
+      public:
+        void count(int increment=1) { ptrInMap->second += increment; }
+        int get() const { return ptrInMap->second; }
+    };
+    
+    OperationCounter createOperation(const char *name, int size)
+    {
+        return OperationCounter(*this, name, size);
+    }
 
 private:
-	std::string title;
-	OpcountMap opcountMap;
-	GroupMap groups;
+    std::string title;
+    OpcountMap opcountMap;
+    GroupMap groups;
 
-	void print_modified(FILE *f, const char *str){
-		int i = 0;
-		while(str[i] != 0){
-			if(isalnum(str[i]) || str[i] == '_'){
-				fprintf(f, "%c", str[i]);
-			}else{
-				fprintf(f, "_");
-			}
-			++i;
-		}
-	}
+    void print_modified(FILE *f, const char *str)
+    {
+        int i = 0;
+        while(str[i] != 0){
+            if(isalnum(str[i]) || str[i] == '_'){
+                fprintf(f, "%c", str[i]);
+            }else{
+                fprintf(f, "_");
+            }
+            ++i;
+        }
+    }
 };
 
 typedef Profiler::OperationCounter Operation;
@@ -11336,95 +11354,97 @@ enum SortMethod { UNSORTED=0, ASCENDING=1, DESCENDING=2 };
 * optionally, the array can be unique or sorted in ascending (1) or descending (2) order
 */
 template <typename T>
-	void FillRandomArray(T *arr, int size, T range_min=10, T range_max=50000, bool unique = false, int sorted=UNSORTED){
-		int i, pos, extendedSize;
-		bool discreteType = true;
-		T interval_len = range_max - range_min + 1;
-		int idx1, idx2;
-		T aux;
-		static bool seeded = false;
+    void FillRandomArray(T *arr, int size, T range_min=10, T range_max=50000, bool unique = false, int sorted=UNSORTED){
+        int i, pos, extendedSize;
+        bool discreteType = true;
+        T interval_len = range_max - range_min + 1;
+        int idx1, idx2;
+        T aux;
+        static bool seeded = false;
 
-		if(!seeded){
-			srand((unsigned int)time(NULL));
-			seeded = true;
-		}
+        if(!seeded){
+            srand((unsigned int)time(NULL));
+            seeded = true;
+        }
 
-		if(range_min >= range_max){
-			throw "empty range";
-		}
-		
-		if(typeid(T) == typeid(double) || typeid(T) == typeid(float)){
-			discreteType = false;
-		}
-		if(!unique){
-			//no worries
-			for(i=0; i<size; ++i){
-				if(discreteType){
-					arr[i] = range_min + (rand() % int(interval_len));
-				}else{
-					arr[i] = range_min + ((T)(rand()) / RAND_MAX) * (interval_len - 1);
-				}
-			}
-			if(sorted == ASCENDING){
-				std::sort(arr, arr + size);
-			}else if(sorted == DESCENDING){
-				std::sort(arr, arr + size, std::greater<T>());
-			}
-		}else{
-			//use Knuth approach
-			if(discreteType){
-				if(interval_len < size){
-					throw "range too small";
-				}
-				pos = 0;
-				for(i=0; i<=interval_len && pos<size; ++i){
-					if(rand() % (int(interval_len) - i) < (size - pos)){
-						arr[pos++] = range_min + i;
-					}
-				}
-			}else{
-				//use the same approach as above, pick integers from 0 to 17*size
-				extendedSize = 17 * size;
-				pos = 0;
-				for(i=0; i<=extendedSize && pos<size; ++i){
-					if(rand() % (extendedSize - i) < (size - pos)){
-						arr[pos++] = range_min + ((T)i / extendedSize) * (interval_len - 1);
-					}
-				}
-			}
-			//we got a sorted array in ascending order
-			if(sorted == DESCENDING){
-				std::reverse(arr, arr+size);
-			}else if(sorted == UNSORTED){
-				//we need to scramble the array
-				for(i=0; i<size; ++i){
-					idx1 = rand() % size;
-					idx2 = rand() % size;
-					aux = arr[idx1];
-					arr[idx1] = arr[idx2];
-					arr[idx2] = aux;
-				}
-			}
-		}
-	}
+        if(range_min >= range_max){
+            throw "empty range";
+        }
+        
+        if(typeid(T) == typeid(double) || typeid(T) == typeid(float)){
+            discreteType = false;
+        }
+        if(!unique){
+            //no worries
+            for(i=0; i<size; ++i){
+                if(discreteType){
+                    arr[i] = range_min + (rand() % int(interval_len));
+                }else{
+                    arr[i] = range_min + ((T)(rand()) / RAND_MAX) * (interval_len - 1);
+                }
+            }
+            if(sorted == ASCENDING){
+                std::sort(arr, arr + size);
+            }else if(sorted == DESCENDING){
+                std::sort(arr, arr + size, std::greater<T>());
+            }
+        }else{
+            //use Knuth approach
+            if(discreteType){
+                if(interval_len < size){
+                    throw "range too small";
+                }
+                pos = 0;
+                for(i=0; i<=interval_len && pos<size; ++i){
+                    if(rand() % (int(interval_len) - i) < (size - pos)){
+                        arr[pos++] = range_min + i;
+                    }
+                }
+            }else{
+                //use the same approach as above, pick integers from 0 to 17*size
+                extendedSize = 17 * size;
+                pos = 0;
+                for(i=0; i<=extendedSize && pos<size; ++i){
+                    if(rand() % (extendedSize - i) < (size - pos)){
+                        arr[pos++] = range_min + ((T)i / extendedSize) * (interval_len - 1);
+                    }
+                }
+            }
+            //we got a sorted array in ascending order
+            if(sorted == DESCENDING){
+                std::reverse(arr, arr+size);
+            }else if(sorted == UNSORTED){
+                //we need to scramble the array
+                for(i=0; i<size; ++i){
+                    idx1 = rand() % size;
+                    idx2 = rand() % size;
+                    aux = arr[idx1];
+                    arr[idx1] = arr[idx2];
+                    arr[idx2] = aux;
+                }
+            }
+        }
+    }
 
 template <typename T>
-	void CopyArray(T *dst, T *src, int size) {
-		memcpy(dst, src, size * sizeof(T));
-	}
+void CopyArray(T *dst, T *src, int size)
+{
+    memcpy(dst, src, size * sizeof(T));
+}
 
 /**
 * Checks if the given array is sorted or not.
 */
 template <typename T>
-	bool IsSorted(T *arr, int size){
-		int i;
-		for(i=1; i<size; ++i){
-			if(arr[i] < arr[i-1]){
-				return false;
-			}
-		}
-		return true;
-	}
+bool IsSorted(T *arr, int size)
+{
+    int i;
+    for(i=1; i<size; ++i){
+        if(arr[i] < arr[i-1]){
+            return false;
+        }
+    }
+    return true;
+}
 
 #endif
