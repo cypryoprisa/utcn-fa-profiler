@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <functional>
 #include <string>
+#include <chrono>
 
 namespace HtmlGen{
 const char htmlFirst[] = {
@@ -11130,6 +11131,7 @@ public:
         title = newTitle? newTitle: "Title";
         groups.clear();
         opcountMap.clear();
+        countersDisabled = false;
     }
 
     /**
@@ -11137,8 +11139,44 @@ public:
     */
     void countOperation(const char *name, int size, int increment=1)
     {
-        opcountMap[name][size] += increment;
+        if(!countersDisabled) {
+            opcountMap[name][size] += increment;
+        }
     }
+
+    /**
+	* starts a timer for operation name, at the specified size
+	*/
+	void startTimer(const char *name, int size)
+    {
+        countersDisabled = true;
+        TIME_MEASURE &tm = timeMap[name][size];
+        tm.lastStart = std::chrono::high_resolution_clock::now();
+	}
+
+	/**
+	* stops the timer for operation name, at the specified size
+	*/
+	void stopTimer(const char *name, int size)
+    {
+        std::chrono::time_point<std::chrono::high_resolution_clock> stopTime = std::chrono::high_resolution_clock::now();
+        if(!countersDisabled) {
+            fprintf(stderr, "[ERROR] The timer was not started!\n");
+            throw "timer not started";
+        }
+        countersDisabled = false;
+        if(timeMap.find(name) == timeMap.end()) {
+            fprintf(stderr, "[ERROR] No timer called '%s' was started!\n", name);
+            throw "no such series name";
+        }
+        if(timeMap[name].find(size) == timeMap[name].end()) {
+            fprintf(stderr, "[ERROR] The timer '%s' was not started for size %d!\n", name, size);
+            throw "no such size for series";
+        }
+        TIME_MEASURE &tm = timeMap[name][size];
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - tm.lastStart);
+        tm.totalTime += duration.count();
+	}
 
     /**
     * creates a new group from the given members
@@ -11262,9 +11300,34 @@ public:
             fseek(fout, -(int)(strlen("\n") + 1), SEEK_CUR);
             fprintf(fout, "\n");
         }
+
+        //second, show the times
+        fprintf(fout, "\t},\n\t\"times\": {\n");
+		hasSequences = false;
+		TimeMap::const_iterator tit1;
+		TimeSequence::const_iterator tit2;
+		for(tit1 = timeMap.begin(); tit1 != timeMap.end(); ++tit1) {
+			hasSequences = true;
+			hasData = false;
+			fprintf(fout, "\t\t\"");
+			print_modified(fout, tit1->first);
+			fprintf(fout, "\": [");
+			for(tit2 = tit1->second.begin(); tit2 != tit1->second.end(); ++tit2) {
+				hasData = true;
+				fprintf(fout, "[%d, %d], ", tit2->first, tit2->second.totalTime);
+			}
+			if(hasData) {
+				fseek(fout, -2, SEEK_CUR);
+			}
+			fprintf(fout, "],\n");
+		}
+		if(hasSequences){
+			fseek(fout, -(int)(strlen("\n") + 1), SEEK_CUR);
+			fprintf(fout, "\n");
+		}
         
-        fprintf(fout, "\t},\n\t\"groups\": {\n");
         //next show the groups
+        fprintf(fout, "\t},\n\t\"groups\": {\n");
         hasSequences = false;
         GroupMap::const_iterator git1;
         std::vector<std::string>::const_iterator git2;
@@ -11300,9 +11363,16 @@ public:
     }
 
 private:
+    struct TIME_MEASURE{
+        int totalTime;
+        std::chrono::time_point<std::chrono::high_resolution_clock> lastStart;
+        TIME_MEASURE(): totalTime(0) {}
+    };
     typedef unsigned int OPCOUNT_MEASURE;
 
+    typedef std::map<int, TIME_MEASURE> TimeSequence;
     typedef std::map<int, OPCOUNT_MEASURE> OpcountSequence;
+    typedef std::map<const char*, TimeSequence> TimeMap;
     typedef std::map<std::string, OpcountSequence> OpcountMap;
 
     typedef std::map<std::string, std::vector<std::string> > GroupMap;
@@ -11318,7 +11388,12 @@ public:
             ptrInMap = profiler.opcountMap[name].find(size);
         }
       public:
-        void count(int increment=1) { ptrInMap->second += increment; }
+        void count(int increment=1)
+        {
+            if(!profiler.countersDisabled) {
+                ptrInMap->second += increment;
+            }
+        }
         int get() const { return ptrInMap->second; }
     };
     
@@ -11329,8 +11404,10 @@ public:
 
 private:
     std::string title;
+    TimeMap timeMap;
     OpcountMap opcountMap;
     GroupMap groups;
+    bool countersDisabled;
 
     void print_modified(FILE *f, const char *str)
     {
@@ -11354,77 +11431,79 @@ enum SortMethod { UNSORTED=0, ASCENDING=1, DESCENDING=2 };
 * optionally, the array can be unique or sorted in ascending (1) or descending (2) order
 */
 template <typename T>
-    void FillRandomArray(T *arr, int size, T range_min=10, T range_max=50000, bool unique = false, int sorted=UNSORTED){
-        int i, pos, extendedSize;
-        bool discreteType = true;
-        T interval_len = range_max - range_min + 1;
-        int idx1, idx2;
-        T aux;
-        static bool seeded = false;
+void FillRandomArray(T *arr, int size, T range_min=10, T range_max=50000, bool unique=false, int sorted=UNSORTED)
+{
+    int i, pos, extendedSize;
+    bool discreteType = true;
+    T interval_len = range_max - range_min + 1;
+    int idx1, idx2;
+    T aux;
+    static bool seeded = false;
 
-        if(!seeded){
-            srand((unsigned int)time(NULL));
-            seeded = true;
-        }
+    if(!seeded) {
+        srand((unsigned int)time(NULL));
+        seeded = true;
+    }
 
-        if(range_min >= range_max){
-            throw "empty range";
+    if(range_min >= range_max) {
+        throw "empty range";
+    }
+    
+    if(typeid(T) == typeid(double) || typeid(T) == typeid(float)) {
+        discreteType = false;
+    }
+    if(!unique) {
+        //no worries
+        for(i=0; i<size; ++i) {
+            if(discreteType) {
+                arr[i] = range_min + (rand() % int(interval_len));
+            } else {
+                arr[i] = range_min + ((T)(rand()) / RAND_MAX) * (interval_len - 1);
+            }
         }
-        
-        if(typeid(T) == typeid(double) || typeid(T) == typeid(float)){
-            discreteType = false;
+        if(sorted == ASCENDING) {
+            std::sort(arr, arr + size);
+        } else if(sorted == DESCENDING) {
+            std::sort(arr, arr + size, std::greater<T>());
         }
-        if(!unique){
-            //no worries
-            for(i=0; i<size; ++i){
-                if(discreteType){
-                    arr[i] = range_min + (rand() % int(interval_len));
-                }else{
-                    arr[i] = range_min + ((T)(rand()) / RAND_MAX) * (interval_len - 1);
+    } else {
+        //use Knuth approach
+        if(discreteType) {
+            if(interval_len < size) {
+                fprintf(stderr, "[ERROR] cannot generate %d unique numbers in an interval of length %d!\n", size, int(interval_len));
+                throw "range too small";
+            }
+            pos = 0;
+            for(i=0; i<=interval_len && pos<size; ++i) {
+                if(rand() % (int(interval_len) - i) < (size - pos)) {
+                    arr[pos++] = range_min + i;
                 }
             }
-            if(sorted == ASCENDING){
-                std::sort(arr, arr + size);
-            }else if(sorted == DESCENDING){
-                std::sort(arr, arr + size, std::greater<T>());
-            }
-        }else{
-            //use Knuth approach
-            if(discreteType){
-                if(interval_len < size){
-                    throw "range too small";
-                }
-                pos = 0;
-                for(i=0; i<=interval_len && pos<size; ++i){
-                    if(rand() % (int(interval_len) - i) < (size - pos)){
-                        arr[pos++] = range_min + i;
-                    }
-                }
-            }else{
-                //use the same approach as above, pick integers from 0 to 17*size
-                extendedSize = 17 * size;
-                pos = 0;
-                for(i=0; i<=extendedSize && pos<size; ++i){
-                    if(rand() % (extendedSize - i) < (size - pos)){
-                        arr[pos++] = range_min + ((T)i / extendedSize) * (interval_len - 1);
-                    }
+        } else {
+            //use the same approach as above, pick integers from 0 to 17*size
+            extendedSize = 17 * size;
+            pos = 0;
+            for(i=0; i<=extendedSize && pos<size; ++i) {
+                if(rand() % (extendedSize - i) < (size - pos)) {
+                    arr[pos++] = range_min + ((T)i / extendedSize) * (interval_len - 1);
                 }
             }
-            //we got a sorted array in ascending order
-            if(sorted == DESCENDING){
-                std::reverse(arr, arr+size);
-            }else if(sorted == UNSORTED){
-                //we need to scramble the array
-                for(i=0; i<size; ++i){
-                    idx1 = rand() % size;
-                    idx2 = rand() % size;
-                    aux = arr[idx1];
-                    arr[idx1] = arr[idx2];
-                    arr[idx2] = aux;
-                }
+        }
+        //we got a sorted array in ascending order
+        if(sorted == DESCENDING) {
+            std::reverse(arr, arr+size);
+        }else if(sorted == UNSORTED) {
+            //we need to scramble the array
+            for(i=0; i<size; ++i) {
+                idx1 = rand() % size;
+                idx2 = rand() % size;
+                aux = arr[idx1];
+                arr[idx1] = arr[idx2];
+                arr[idx2] = aux;
             }
         }
     }
+}
 
 template <typename T>
 void CopyArray(T *dst, T *src, int size)
