@@ -90,8 +90,8 @@ int factorial(int n)
     int res = 1;
     Operation o = profiler.createOperation("factorial_iter", n);
     for(int i=2; i<=n; ++i) {
-        o.count();
         res *= i;
+        o.count();
     }
     return res;
 }
@@ -105,8 +105,8 @@ int factorial_rec(int n, Operation &o)
     if(n <= 1) {
         res = 1;
     } else {
+        res = factorial_rec(n - 1, o) * n;
         o.count();
-        res = n * factorial_rec(n - 1, o);
     }
     return res;
 }
