@@ -11175,7 +11175,7 @@ public:
         }
         TIME_MEASURE &tm = timeMap[name][size];
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - tm.lastStart);
-        tm.totalTime += duration.count();
+        tm.totalTime += (int)duration.count();
 	}
 
     /**

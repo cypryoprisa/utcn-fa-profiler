@@ -1,7 +1,5 @@
 #include "Profiler.h"
 
-#define MAX_SIZE 2000
-
 Profiler profiler("demo-power");
 
 /**
@@ -83,32 +81,39 @@ bool hasDuplicates(int *v, int size)
 }
 
 /**
-* the iterative version of the factorial function
+* an iterative function for finding the minimum element in a vector
 */
-int factorial(int n)
+int array_minimum_iter(int *v, int size)
 {
-    int res = 1;
-    Operation o = profiler.createOperation("factorial_iter", n);
-    for(int i=2; i<=n; ++i) {
-        res *= i;
+    int min = v[0];
+    Operation o = profiler.createOperation("array_min_iter", size);
+    for(int i=1; i<size; ++i) {
         o.count();
+        if(v[i] < min) {
+            min = v[i];
+        }
     }
-    return res;
+    return min;
 }
 
 /**
-* the recursive version of the factorial function
+* a recursive function for finding the minimum element in a vector
 */
-int factorial_rec(int n, Operation &o)
+int array_minimum_rec(int *v, int from, int to, Operation &o)
 {
-    int res;
-    if(n <= 1) {
-        res = 1;
+    if(from == to) {
+        return v[from];
     } else {
-        res = factorial_rec(n - 1, o) * n;
+        int middle = (from + to) / 2;
+        int m1 = array_minimum_rec(v, from, middle, o);
+        int m2 = array_minimum_rec(v, middle + 1, to, o);
         o.count();
+        if(m1 < m2) {
+            return m1;
+        } else {
+            return m2;
+        }
     }
-    return res;
 }
 
 int main(void)
@@ -132,38 +137,44 @@ int main(void)
     //second example: find duplicates in a vector
     profiler.reset("demo-duplicates");
     printf("Finding duplicates...\n");
-    int v[MAX_SIZE];
-    FillRandomArray(v, MAX_SIZE);
-    for(n=100; n<MAX_SIZE; n+=100) {
-        hasDuplicates(v, n); //we're not actually interested in the result
+    const int max_size1 = 2000;
+    int a[max_size1];
+    FillRandomArray(a, max_size1);
+    for(n=100; n<max_size1; n+=100) {
+        hasDuplicates(a, n); //we're not actually interested in the result
     }
 
-    //third example: factorial - iterative vs recursive
-    profiler.reset("demo-factorial");
-    printf("Computing factorial...\n");
+    //third example: array minimum - iterative vs recursive
+    profiler.reset("demo-array-min");
+    printf("Finding array minimum...\n");
     const int step = 1000;
     const int nr_tests = 100;
-    for(n=step; n<=100*step; n+=step) {
-        factorial(n);
-
-        Operation op = profiler.createOperation("factorial_rec", n);
-        factorial_rec(n, op);
+    const int max_size2 = step * 100;
+    int b[max_size2];
+    FillRandomArray(b, max_size2);
+    
+    for(n=step; n<=max_size2; n+=step) {
+        array_minimum_iter(b, n); //we're not actually interested in the result
+        
+        Operation op = profiler.createOperation("array_min_rec", n);
+        array_minimum_rec(b, 0, n-1, op); //we're not actually interested in the result
     }
-    for(n=step; n<=100*step; n+=step) {
-        profiler.startTimer("factorial_iter", n);
-        for(int test=0; test<nr_tests; ++test) {
-            factorial(n);
-        }
-        profiler.stopTimer("factorial_iter", n);
 
-        Operation op = profiler.createOperation("factorial_rec", n);
-        profiler.startTimer("factorial_rec", n);
+    for(n=step; n<=max_size2; n+=step) {
+        profiler.startTimer("array_min_iter", n);
         for(int test=0; test<nr_tests; ++test) {
-            factorial_rec(n, op);
+            array_minimum_iter(b, n); //we're not actually interested in the result
         }
-        profiler.stopTimer("factorial_rec", n);
+        profiler.stopTimer("array_min_iter", n);
+
+        Operation op = profiler.createOperation("array_min_rec", n);
+        profiler.startTimer("array_min_rec", n);
+        for(int test=0; test<nr_tests; ++test) {
+            array_minimum_rec(b, 0, n-1, op); //we're not actually interested in the result
+        }
+        profiler.stopTimer("array_min_rec", n);
     }
-    profiler.createGroup("factorial", "factorial_iter", "factorial_rec");
+    profiler.createGroup("array_min", "array_min_iter", "array_min_rec");
 
     profiler.showReport();
     return 0;
