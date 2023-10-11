@@ -20,6 +20,8 @@
 #ifdef PROFILER_WINDOWS
 #   include <Windows.h>
 #   include <Shellapi.h>
+#else
+#   include <unistd.h>
 #endif
 
 #include <stdio.h>
@@ -11358,6 +11360,10 @@ public:
 
 #ifdef PROFILER_WINDOWS
         ShellExecuteA(NULL, "open", reportName, NULL, NULL, SW_SHOW);
+#elif defined(PROFILER_OSX)
+        if(fork() == 0) {
+            execlp("open", "open", reportName);
+        }
 #endif
         return 0;
     }
