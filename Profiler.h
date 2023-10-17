@@ -11212,18 +11212,23 @@ public:
     */
     void addSeries(const char *newName, const char *series1, const char *series2)
     {
-        if(opcountMap.find(series1) != opcountMap.end() &&
-            opcountMap.find(series2) != opcountMap.end()) {
-                OpcountSequence::const_iterator it1, it2;
-                opcountMap[newName] = OpcountSequence();
-                for (it1 = opcountMap[series1].begin(); it1 != opcountMap[series1].end(); ++it1) {
-                    it2 = opcountMap[series2].find(it1->first);
-                    if(it2 != opcountMap[series2].end()) {
-                        opcountMap[newName][it1->first] = it1->second + it2->second;
-                    } else {
-                        opcountMap[newName][it1->first] = it1->second;
-                    }
-                }
+        if(opcountMap.find(series1) == opcountMap.end()) {
+            fprintf(stderr, "[ERROR] No series named '%s' found!\n", series1);
+            throw "no such series name";
+        }
+        if(opcountMap.find(series2) == opcountMap.end()) {
+            fprintf(stderr, "[ERROR] No series named '%s' found!\n", series2);
+            throw "no such series name";
+        }
+        OpcountSequence::const_iterator it1, it2;
+        opcountMap[newName] = OpcountSequence();
+        for (it1 = opcountMap[series1].begin(); it1 != opcountMap[series1].end(); ++it1) {
+            it2 = opcountMap[series2].find(it1->first);
+            if(it2 != opcountMap[series2].end()) {
+                opcountMap[newName][it1->first] = it1->second + it2->second;
+            } else {
+                opcountMap[newName][it1->first] = it1->second;
+            }
         }
     }
 
@@ -11232,7 +11237,11 @@ public:
     */
     void divideValues(const char *series, unsigned int divisor)
     {
-        if (opcountMap.find(series) != opcountMap.end() && divisor != 0) {
+        if(opcountMap.find(series) == opcountMap.end()) {
+            fprintf(stderr, "[ERROR] No series named '%s' found!\n", series);
+            throw "no such series name";
+        }
+        if (divisor != 0) {
             OpcountSequence::iterator it;
             for (it = opcountMap[series].begin(); it != opcountMap[series].end(); ++it) {
                 it->second /= divisor;
