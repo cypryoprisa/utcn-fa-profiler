@@ -11371,7 +11371,9 @@ public:
         ShellExecuteA(NULL, "open", reportName, NULL, NULL, SW_SHOW);
 #elif defined(PROFILER_OSX)
         if(fork() == 0) {
-            execlp("open", "open", reportName);
+            execlp("open", "open", reportName, NULL);
+            perror("open failed");
+            exit(1);
         }
 #endif
         return 0;
