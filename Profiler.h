@@ -11259,13 +11259,13 @@ public:
         char reportName[200];
         time_t crtTime = time(0);
         struct tm now;
-#ifdef PROFILER_WINDOWS
+#ifdef _MSC_VER
         localtime_s(&now, &crtTime);
 #else
         now = *localtime(&crtTime);
 #endif
 
-#ifdef PROFILER_WINDOWS
+#ifdef _MSC_VER
         _snprintf_s(
 #else
         snprintf(
@@ -11280,7 +11280,7 @@ public:
                             now.tm_min,
                             now.tm_sec
         );
-#ifdef PROFILER_WINDOWS
+#ifdef _MSC_VER
         fopen_s(&fout, reportName, "wb");
 #else
         fout = fopen(reportName, "wb");
