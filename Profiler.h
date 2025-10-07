@@ -11321,7 +11321,7 @@ public:
 			hasSequences = true;
 			hasData = false;
 			fprintf(fout, "\t\t\"");
-			print_modified(fout, tit1->first);
+			print_modified(fout, tit1->first.c_str());
 			fprintf(fout, "\": [");
 			for(tit2 = tit1->second.begin(); tit2 != tit1->second.end(); ++tit2) {
 				hasData = true;
@@ -11389,7 +11389,7 @@ private:
 
     typedef std::map<int, TIME_MEASURE> TimeSequence;
     typedef std::map<int, OPCOUNT_MEASURE> OpcountSequence;
-    typedef std::map<const char*, TimeSequence> TimeMap;
+    typedef std::map<std::string, TimeSequence> TimeMap;
     typedef std::map<std::string, OpcountSequence> OpcountMap;
 
     typedef std::map<std::string, std::vector<std::string> > GroupMap;
